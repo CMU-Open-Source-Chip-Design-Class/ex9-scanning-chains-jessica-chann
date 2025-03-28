@@ -294,73 +294,30 @@ async def test(dut):
         a_bits = [int(bit) for bit in bin(a_val)[2:].zfill(4)]
         b_bits = [int(bit) for bit in bin(b_val)[2:].zfill(4)]
         
-        # Debug prints
-        print(f"a_val: {a_val}, binary: {bin(a_val)[2:].zfill(4)}, bits: {a_bits}")
-        print(f"b_val: {b_val}, binary: {bin(b_val)[2:].zfill(4)}, bits: {b_bits}")
-        
         a_reg = chain.registers["a_reg"]
         b_reg = chain.registers["b_reg"]
         x_out = chain.registers["x_out"]
         
-        # Debug prints for register indices
-        print(f"a_reg indices: {a_reg.index_list}")
-        print(f"b_reg indices: {b_reg.index_list}")
-        print(f"x_out indices: {x_out.index_list}")
-        
         all_bits = [0] * CHAIN_LENGTH
-        
-        # Try using reversed a_bits and b_bits to change the bit ordering
+        # Reverse bits
         a_bits_reversed = a_bits[::-1]
         b_bits_reversed = b_bits[::-1]
         
-        print(f"a_bits_reversed: {a_bits_reversed}")
-        print(f"b_bits_reversed: {b_bits_reversed}")
-        
-        # Use reversed bits for loading
+        # Load input bits 
         for i in range(a_reg.size):
             all_bits[a_reg.index_list[i]] = a_bits_reversed[i]
         
         for i in range(b_reg.size):
             all_bits[b_reg.index_list[i]] = b_bits_reversed[i]
         
-        print(f"all_bits being loaded into chain: {all_bits}")
-
         await input_chain(dut, all_bits, 0)
-        
         dut.scan_en.value = 0
         await step_clock(dut)
         
         dut.scan_en.value = 1
         result_bits = await output_chain(dut, x_out.first, x_out.size)
-
-        # Try a different approach to interpreting the result bits
-        print(f"Interpreting result bits differently:")
-        # Try direct binary conversion (MSB first as received)
-        result_msb_first = int(''.join(map(str, result_bits)), 2)
-        print(f"MSB first (as received): {result_msb_first}")
-
-        # Try LSB first
-        result_lsb_first = int(''.join(map(str, result_bits[::-1])), 2)
-        print(f"LSB first (reversed): {result_lsb_first}")
-
-        # Try just the first 4 bits (in case 5th bit is something else)
-        result_4bits_msb = int(''.join(map(str, result_bits[:4])), 2)
-        print(f"First 4 bits (MSB first): {result_4bits_msb}")
-        result_4bits_lsb = int(''.join(map(str, result_bits[:4][::-1])), 2)
-        print(f"First 4 bits (LSB first): {result_4bits_lsb}")
         
-        # Print raw result bits
-        print(f"Raw result bits received: {result_bits}")
-        
-        # Try using reversed result bits
-        result_bits_reversed = result_bits[::-1]
-        print(f"Reversed result bits: {result_bits_reversed}")
-        
-        # Calculate result from reversed bits
-        result = 0
-        for bit in result_bits_reversed:
-            result = (result << 1) | bit
-        
+        result = int(''.join(map(str, result_bits[:4])), 2)
         expected = a_val + b_val
         
         print(f"Test: {a_val} + {b_val} = {result}, Expected: {expected}")
