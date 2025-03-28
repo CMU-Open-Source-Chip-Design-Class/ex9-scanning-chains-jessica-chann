@@ -276,15 +276,13 @@ async def test(dut):
     
     CHAIN_LENGTH = chain.chain_length
     
-    # Print chain info for debugging
     print_chain(chain)
     
-    # Initialize circuit
+    # Init
     dut.scan_en.value = 0
     dut.scan_in.value = 0
     dut.clk.value = 0
     
-    # Test different input values for the adder
     test_cases = [
         (0b0101, 0b0011),  # 5 + 3 = 8
         (0b1010, 0b0011),  # 10 + 3 = 13
@@ -296,47 +294,58 @@ async def test(dut):
         a_bits = [int(bit) for bit in bin(a_val)[2:].zfill(4)]
         b_bits = [int(bit) for bit in bin(b_val)[2:].zfill(4)]
         
-        # Create list of all bits to scan in
-        # Order matters: need to set all registers in a single scan chain pass
-        # Need to identify register positions from the chain object
+        # Debug prints
+        print(f"a_val: {a_val}, binary: {bin(a_val)[2:].zfill(4)}, bits: {a_bits}")
+        print(f"b_val: {b_val}, binary: {bin(b_val)[2:].zfill(4)}, bits: {b_bits}")
         
-        # Access register indices from the chain
         a_reg = chain.registers["a_reg"]
         b_reg = chain.registers["b_reg"]
         x_out = chain.registers["x_out"]
         
-        # Prepare all zeroes first
+        # Debug prints for register indices
+        print(f"a_reg indices: {a_reg.index_list}")
+        print(f"b_reg indices: {b_reg.index_list}")
+        print(f"x_out indices: {x_out.index_list}")
+        
         all_bits = [0] * CHAIN_LENGTH
         
-        # Set input bits in the right positions
-        # Careful with bit ordering here (MSB vs LSB)
+        # Try using reversed a_bits and b_bits to change the bit ordering
+        a_bits_reversed = a_bits[::-1]
+        b_bits_reversed = b_bits[::-1]
+        
+        print(f"a_bits_reversed: {a_bits_reversed}")
+        print(f"b_bits_reversed: {b_bits_reversed}")
+        
+        # Use reversed bits for loading
         for i in range(a_reg.size):
-            all_bits[a_reg.index_list[i]] = a_bits[i]
+            all_bits[a_reg.index_list[i]] = a_bits_reversed[i]
         
         for i in range(b_reg.size):
-            all_bits[b_reg.index_list[i]] = b_bits[i]
+            all_bits[b_reg.index_list[i]] = b_bits_reversed[i]
         
-        # Scan in all values at once
-        # Since we're setting all bits, we start at index 0
+        print(f"all_bits being loaded into chain: {all_bits}")
+
         await input_chain(dut, all_bits, 0)
         
-        # Disable scan mode and pulse the clock to execute the addition
         dut.scan_en.value = 0
         await step_clock(dut)
         
-        # Now read the output register through the scan chain
         dut.scan_en.value = 1
         result_bits = await output_chain(dut, x_out.first, x_out.size)
         
-        # Convert result bits to integer
+        # Print raw result bits
+        print(f"Raw result bits received: {result_bits}")
+        
+        # Try using reversed result bits
+        result_bits_reversed = result_bits[::-1]
+        print(f"Reversed result bits: {result_bits_reversed}")
+        
+        # Calculate result from reversed bits
         result = 0
-        for bit in result_bits:
+        for bit in result_bits_reversed:
             result = (result << 1) | bit
         
-        # Calculate expected result
         expected = a_val + b_val
         
-        # Print and check results
         print(f"Test: {a_val} + {b_val} = {result}, Expected: {expected}")
         assert result == expected, f"Test failed: {a_val} + {b_val} = {result}, Expected: {expected}"
-
