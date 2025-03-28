@@ -332,6 +332,22 @@ async def test(dut):
         
         dut.scan_en.value = 1
         result_bits = await output_chain(dut, x_out.first, x_out.size)
+
+        # Try a different approach to interpreting the result bits
+        print(f"Interpreting result bits differently:")
+        # Try direct binary conversion (MSB first as received)
+        result_msb_first = int(''.join(map(str, result_bits)), 2)
+        print(f"MSB first (as received): {result_msb_first}")
+
+        # Try LSB first
+        result_lsb_first = int(''.join(map(str, result_bits[::-1])), 2)
+        print(f"LSB first (reversed): {result_lsb_first}")
+
+        # Try just the first 4 bits (in case 5th bit is something else)
+        result_4bits_msb = int(''.join(map(str, result_bits[:4])), 2)
+        print(f"First 4 bits (MSB first): {result_4bits_msb}")
+        result_4bits_lsb = int(''.join(map(str, result_bits[:4][::-1])), 2)
+        print(f"First 4 bits (LSB first): {result_4bits_lsb}")
         
         # Print raw result bits
         print(f"Raw result bits received: {result_bits}")
