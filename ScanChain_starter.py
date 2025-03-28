@@ -260,20 +260,75 @@ async def output_chain(dut, ff_index, output_length):
 
 # Your main testbench function
 
-@cocotb.test()
-async def test(dut):
+# @cocotb.test()
+# async def test(dut):
 
-    global CHAIN_LENGTH
-    global FILE_NAME        # Make sure to edit this guy
-                            # at the top of the file
+#     global CHAIN_LENGTH
+#     global FILE_NAME        # Make sure to edit this guy
+#                             # at the top of the file
 
-    # Setup the scan chain object
-    chain = setup_chain(FILE_NAME)
+#     # Setup the scan chain object
+#     chain = setup_chain(FILE_NAME)
 
-    ######################
-    # TODO: YOUR CODE HERE 
-    ######################
+#     ######################
+#     # TODO: YOUR CODE HERE 
+#     ######################
     
+#     CHAIN_LENGTH = chain.chain_length
+    
+#     print_chain(chain)
+    
+#     # Init
+#     dut.scan_en.value = 0
+#     dut.scan_in.value = 0
+#     dut.clk.value = 0
+    
+#     test_cases = [
+#         (0b0101, 0b0011),  # 5 + 3 = 8
+#         (0b1010, 0b0011),  # 10 + 3 = 13
+#         (0b1111, 0b0001)   # 15 + 1 = 16
+#     ]
+    
+#     for a_val, b_val in test_cases:
+#         # Convert inputs to bit lists
+#         a_bits = [int(bit) for bit in bin(a_val)[2:].zfill(4)]
+#         b_bits = [int(bit) for bit in bin(b_val)[2:].zfill(4)]
+        
+#         a_reg = chain.registers["a_reg"]
+#         b_reg = chain.registers["b_reg"]
+#         x_out = chain.registers["x_out"]
+        
+#         all_bits = [0] * CHAIN_LENGTH
+#         # Reverse bits
+#         a_bits_reversed = a_bits[::-1]
+#         b_bits_reversed = b_bits[::-1]
+        
+#         # Load input bits 
+#         for i in range(a_reg.size):
+#             all_bits[a_reg.index_list[i]] = a_bits_reversed[i]
+        
+#         for i in range(b_reg.size):
+#             all_bits[b_reg.index_list[i]] = b_bits_reversed[i]
+        
+#         await input_chain(dut, all_bits, 0)
+#         dut.scan_en.value = 0
+#         await step_clock(dut)
+        
+#         dut.scan_en.value = 1
+#         result_bits = await output_chain(dut, x_out.first, x_out.size)
+        
+#         result = int(''.join(map(str, result_bits[:4])), 2)
+#         expected = a_val + b_val
+        
+#         print(f"Test: {a_val} + {b_val} = {result}, Expected: {expected}")
+#         assert result == expected, f"Test failed: {a_val} + {b_val} = {result}, Expected: {expected}"
+
+
+@cocotb.test()
+async def test_fsm(dut):
+    global CHAIN_LENGTH
+    
+    chain = setup_chain("hidden_fsm/hidden_fsm.log")
     CHAIN_LENGTH = chain.chain_length
     
     print_chain(chain)
@@ -282,43 +337,41 @@ async def test(dut):
     dut.scan_en.value = 0
     dut.scan_in.value = 0
     dut.clk.value = 0
+    dut.data_avail.value = 0 
     
-    test_cases = [
-        (0b0101, 0b0011),  # 5 + 3 = 8
-        (0b1010, 0b0011),  # 10 + 3 = 13
-        (0b1111, 0b0001)   # 15 + 1 = 16
-    ]
+    state_reg = chain.registers["cur_state"]
     
-    for a_val, b_val in test_cases:
-        # Convert inputs to bit lists
-        a_bits = [int(bit) for bit in bin(a_val)[2:].zfill(4)]
-        b_bits = [int(bit) for bit in bin(b_val)[2:].zfill(4)]
+    # Prints so its organized
+    print("State Transition Table:")
+    print("| Current State | data_avail | buf_en | out_sel | out_writing | Next State |")
+    print("|---------------|------------|--------|---------|-------------|------------|")
+    
+    # Try all possible states
+    for state_val in range(8): 
+        state_bits = [int(bit) for bit in bin(state_val)[2:].zfill(3)]
+        state_bits_reversed = state_bits[::-1]  
         
-        a_reg = chain.registers["a_reg"]
-        b_reg = chain.registers["b_reg"]
-        x_out = chain.registers["x_out"]
-        
-        all_bits = [0] * CHAIN_LENGTH
-        # Reverse bits
-        a_bits_reversed = a_bits[::-1]
-        b_bits_reversed = b_bits[::-1]
-        
-        # Load input bits 
-        for i in range(a_reg.size):
-            all_bits[a_reg.index_list[i]] = a_bits_reversed[i]
-        
-        for i in range(b_reg.size):
-            all_bits[b_reg.index_list[i]] = b_bits_reversed[i]
-        
-        await input_chain(dut, all_bits, 0)
-        dut.scan_en.value = 0
-        await step_clock(dut)
-        
-        dut.scan_en.value = 1
-        result_bits = await output_chain(dut, x_out.first, x_out.size)
-        
-        result = int(''.join(map(str, result_bits[:4])), 2)
-        expected = a_val + b_val
-        
-        print(f"Test: {a_val} + {b_val} = {result}, Expected: {expected}")
-        assert result == expected, f"Test failed: {a_val} + {b_val} = {result}, Expected: {expected}"
+        for data_avail_val in [0, 1]:
+            all_bits = [0] * CHAIN_LENGTH
+            
+            for i in range(state_reg.size):
+                all_bits[state_reg.index_list[i]] = state_bits_reversed[i]
+            
+            await input_chain(dut, all_bits, 0)
+            dut.scan_en.value = 0
+            dut.data_avail.value = data_avail_val
+            
+            buf_en = int(dut.buf_en.value)
+            out_sel = int(dut.out_sel.value)
+            out_writing = int(dut.out_writing.value)
+            
+            await step_clock(dut)
+            dut.scan_en.value = 1
+            result_bits = await output_chain(dut, state_reg.first, state_reg.size)
+
+            next_state = 0
+            for i, bit in enumerate(result_bits):
+                next_state |= (bit << i)
+            
+            # Print the transition in table format
+            print(f"| {state_val:^13} | {data_avail_val:^10} | {buf_en:^6} | {out_sel:^7} | {out_writing:^11} | {next_state:^10} |")
