@@ -1,5 +1,5 @@
 TOPLEVEL_LANG = verilog
-VERILOG_SOURCES = $(shell pwd)/adder/hidden_fsm_out.sv
+VERILOG_SOURCES = $(shell pwd)/hidden_fsm/hidden_fsm_out.sv
 TOPLEVEL = adder
 MODULE = ScanChain_starter
 SIM = verilator
